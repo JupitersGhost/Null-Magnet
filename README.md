@@ -1,7 +1,7 @@
 # NULLMAGNET LIVE v1.0
 
 ## Jupiter Labs -- NIST SP 800-90B Aligned Entropy Harvesting Platform
-
+## PROGRAM IS NOT FULLY FUNCTIONING YET, PLEASE DO NOT USE FOR REAL WORLD SECURITY!!!
 ------------------------------------------------------------------------
 
 ## Overview
