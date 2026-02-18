@@ -1,0 +1,60 @@
+{
+  "build": {
+    "distDir": "../src",
+    "devPath": "../src",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "withGlobalTauri": true
+  },
+  "package": {
+    "productName": "NullMagnet Live",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "exists": true,
+        "scope": ["$APP/*", "$RESOURCE/*", "keys/*", "nullmagnet_config.json"]
+      },
+      "path": {
+        "all": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.jupiterlabs.nullmagnet-live",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "Jupiter Labs // NullMagnet Live v1.0 (NIST SP 800-90B)",
+        "width": 960,
+        "height": 1100,
+        "minWidth": 800,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false
+      }
+    ]
+  }
+}

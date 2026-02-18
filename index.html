@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jupiter Labs // NullMagnet Live v1.0 (NIST SP 800-90B)</title>
+<style>
+/* ============================================================================
+   CSS VARIABLES - Mapped from config.py COLOR_* constants
+   ============================================================================ */
+:root {
+  /* Primary Colors (from config.py) */
+  --color-bg: rgb(10, 10, 14);
+  --color-window: rgb(20, 22, 28);
+  --color-text: rgb(220, 220, 220);
+  --color-accent: rgb(255, 45, 45);
+  --color-accent-dim: rgba(180, 30, 30, 0.59);
+  --color-accent-bright: rgb(255, 80, 80);
+
+  /* Plot / Data Colors */
+  --color-plot-line: rgb(255, 45, 45);
+  --color-plot-line2: rgb(255, 100, 100);
+  --color-plot-bg: rgb(15, 15, 20);
+
+  /* Status Colors */
+  --color-error: rgb(255, 50, 50);
+  --color-warn: rgb(255, 170, 50);
+  --color-success: rgb(50, 255, 100);
+  --color-info: rgb(100, 180, 255);
+
+  /* Health Status Colors */
+  --color-health-init: rgb(100, 100, 100);
+  --color-health-startup: rgb(255, 200, 0);
+  --color-health-steady: rgb(0, 255, 100);
+  --color-health-failed: rgb(255, 0, 0);
+  --color-health-dead: rgb(80, 0, 0);
+
+  /* Guitar Source Colors (Purple family) */
+  --color-guitar: rgb(180, 100, 255);
+  --color-guitar-dim: rgba(120, 60, 180, 0.59);
+
+  /* Live Mode Indicator */
+  --color-live-on: rgb(255, 0, 0);
+  --color-live-off: rgb(80, 0, 0);
+  --color-live-blink: rgb(255, 255, 255);
+
+  /* Derived */
+  --color-muted: rgb(100, 100, 100);
+  --color-separator: rgb(60, 20, 20);
+  --color-frame-bg: rgb(18, 18, 24);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
+  --font-ui: 'JetBrains Mono', monospace;
+  --radius: 4px;
+}
+
+/* ============================================================================
+   RESET + BASE
+   ============================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono/fonts/webfonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono/fonts/webfonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(255,20,20,0.03) 0%, transparent 70%),
+    radial-gradient(ellipse at 80% 20%, rgba(255,45,45,0.02) 0%, transparent 60%),
+    var(--color-bg);
+}
+
+/* Subtle scan-line overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  z-index: 9999;
+}
+
+/* ============================================================================
+   SCROLLBARS
+   ============================================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-accent-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+
+/* ============================================================================
+   HEADER BAR
+   ============================================================================ */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-bottom: 4px;
+}
+.header-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 1px;
+}
+.header-subtitle {
+  font-size: 11px;
+  color: rgb(150, 50, 50);
+}
+.header-lab {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.live-indicator {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 3px;
+  margin-left: auto;
+  transition: all 0.15s;
+}
+.live-indicator.off { color: var(--color-muted); }
+.live-indicator.on { color: var(--color-live-on); text-shadow: 0 0 8px rgba(255,0,0,0.6); }
+.live-indicator.pulse { color: var(--color-live-off); }
+.live-indicator.blink {
+  color: var(--color-live-blink);
+  text-shadow: 0 0 12px rgba(255,255,255,0.8);
+}
+
+/* ============================================================================
+   STATUS BAR
+   ============================================================================ */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.status-item { transition: color 0.3s; }
+.status-item.ok { color: var(--color-success); }
+.status-item.warn { color: var(--color-warn); }
+.status-item.err { color: var(--color-error); }
+.status-item.init { color: var(--color-muted); }
+
+/* ============================================================================
+   SEPARATOR
+   ============================================================================ */
+.separator {
+  height: 1px;
+  background: var(--color-separator);
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   NIST CONFIG LINE
+   ============================================================================ */
+.nist-config {
+  font-size: 11px;
+  color: var(--color-accent);
+  flex-shrink: 0;
+  padding: 2px 0;
+}
+
+/* ============================================================================
+   TAB BAR
+   ============================================================================ */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.tab-btn {
+  background: var(--color-frame-bg);
+  color: var(--color-muted);
+  border: none;
+  padding: 6px 18px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+.tab-btn:hover { background: var(--color-accent-dim); color: var(--color-text); }
+.tab-btn.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* ============================================================================
+   TAB CONTENT PANELS
+   ============================================================================ */
+.tab-content {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+.tab-content.active { display: flex; flex-direction: column; gap: 0; }
+
+.tab-panel-row {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+.col-left { width: 310px; flex-shrink: 0; overflow-y: auto; padding-right: 8px; }
+.col-right { flex: 1; overflow-y: auto; }
+
+/* ============================================================================
+   SECTION LABELS
+   ============================================================================ */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 0.5px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.section-label.guitar { color: var(--color-guitar); }
+.section-label:first-child { margin-top: 0; }
+
+/* ============================================================================
+   FORM CONTROLS
+   ============================================================================ */
+
+/* Checkbox row */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.check-row input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-accent-dim);
+  border-radius: 2px;
+  background: var(--color-frame-bg);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+.check-row input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.check-row input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.check-row input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.check-label {
+  font-size: 11px;
+  cursor: pointer;
+}
+.check-hint {
+  font-size: 10px;
+  color: var(--color-muted);
+  margin-left: auto;
+}
+
+/* Text input */
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.input-group label {
+  font-size: 10px;
+  color: var(--color-muted);
+  width: 80px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.input-group input[type="text"],
+.input-group input[type="password"],
+.input-group input[type="number"] {
+  background: var(--color-frame-bg);
+  border: 1px solid var(--color-separator);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input-group input:focus { border-color: var(--color-accent); }
+.input-group input::placeholder { color: var(--color-muted); font-size: 10px; }
+
+/* Slider */
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.slider-group label {
+  font-size: 10px;
+  color: var(--color-muted);
+  width: 80px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.slider-group input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-frame-bg);
+  border-radius: 2px;
+  outline: none;
+  max-width: 180px;
+}
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-accent-bright);
+  transition: transform 0.1s;
+}
+.slider-group input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.slider-value {
+  font-size: 10px;
+  color: var(--color-accent);
+  width: 32px;
+}
+
+/* Button */
+.btn {
+  background: var(--color-frame-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-separator);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.btn:hover { background: var(--color-accent-dim); border-color: var(--color-accent); }
+.btn:active { background: var(--color-accent); color: #fff; }
+.btn.full { width: 100%; }
+.btn-row { display: flex; gap: 6px; }
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 16px;
+  background: var(--color-frame-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--color-separator);
+}
+.progress-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent));
+  border-radius: var(--radius);
+  transition: width 0.3s ease;
+  position: relative;
+}
+.progress-bar .fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Status text */
+.status-text {
+  font-size: 11px;
+  padding: 2px 0;
+  transition: color 0.3s;
+}
+.status-text.muted { color: var(--color-muted); }
+.status-text.success { color: var(--color-success); }
+.status-text.warn { color: var(--color-warn); }
+.status-text.error { color: var(--color-error); }
+.status-text.accent { color: var(--color-accent); }
+.status-text.info { color: var(--color-info); }
+
+/* ============================================================================
+   STATS PANEL (Right column)
+   ============================================================================ */
+.stat-line {
+  font-size: 11px;
+  padding: 1px 0;
+}
+.stat-line.big {
+  font-size: 12px;
+  font-weight: 700;
+}
+.stat-line.accent { color: var(--color-accent); }
+
+/* Source breakdown textarea */
+.source-breakdown {
+  width: 100%;
+  height: 200px;
+  background: var(--color-frame-bg);
+  border: 1px solid var(--color-separator);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+}
+
+/* ============================================================================
+   GUITAR STATUS INLINE
+   ============================================================================ */
+.guitar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.guitar-port {
+  font-size: 10px;
+}
+.guitar-status {
+  font-size: 10px;
+  margin-left: 4px;
+  transition: color 0.3s;
+}
+
+/* ============================================================================
+   ENTROPY GRAPH (Canvas area)
+   ============================================================================ */
+.graph-section {
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+.graph-label {
+  font-size: 10px;
+  color: var(--color-muted);
+  margin-bottom: 2px;
+}
+.graph-container {
+  width: 100%;
+  height: 160px;
+  background: var(--color-plot-bg);
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+.graph-container canvas {
+  width: 100%;
+  height: 100%;
+}
+/* Y-axis labels */
+.graph-y-labels {
+  position: absolute;
+  top: 0;
+  left: 4px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  font-size: 9px;
+  color: var(--color-muted);
+  padding: 4px 0;
+}
+/* Legend */
+.graph-legend {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 9px;
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.graph-legend::before {
+  content: '';
+  width: 14px;
+  height: 2px;
+  background: var(--color-accent);
+}
+
+/* ============================================================================
+   POOL STATE DISPLAY
+   ============================================================================ */
+.pool-section {
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+.pool-label {
+  font-size: 10px;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+.pool-display {
+  width: 100%;
+  background: var(--color-frame-bg);
+  border: 1px solid var(--color-separator);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  letter-spacing: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   AUDIT LOG
+   ============================================================================ */
+.log-section {
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+.log-label {
+  font-size: 10px;
+  color: var(--color-accent);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.log-display {
+  width: 100%;
+  height: 140px;
+  background: var(--color-frame-bg);
+  border: 1px solid var(--color-separator);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  overflow-y: auto;
+}
+
+/* ============================================================================
+   SPACER
+   ============================================================================ */
+.spacer-sm { height: 6px; flex-shrink: 0; }
+.spacer-md { height: 10px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- ===========================================================================
+     HEADER (matches main.py lines 633-641)
+     =========================================================================== -->
+<div class="header">
+  <span class="header-title">NULLMAGNET LIVE v1.0</span>
+  <span class="header-subtitle">// NIST SP 800-90B ALIGNED</span>
+  <span class="header-lab">// JUPITER LABS</span>
+  <span id="liveIndicator" class="live-indicator off">LIVE: OFF</span>
+</div>
+
+<!-- ===========================================================================
+     STATUS BAR (matches main.py lines 644-651)
+     =========================================================================== -->
+<div class="status-bar">
+  <span id="statusPqc" class="status-item init">PQC: INIT...</span>
+  <span id="statusNet" class="status-item init">UPLINK: INIT...</span>
+  <span id="statusP2p" class="status-item init">P2P: INIT...</span>
+  <span id="statusGpu" class="status-item init">GPU: INIT...</span>
+</div>
+
+<div class="separator"></div>
+
+<!-- ===========================================================================
+     NIST CONFIG LINE (matches main.py line 656)
+     =========================================================================== -->
+<div id="nistConfig" class="nist-config">NIST CONFIG: Loading...</div>
+
+<div class="separator"></div>
+
+<!-- ===========================================================================
+     TAB BAR (matches main.py line 661 tab_bar)
+     =========================================================================== -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="sources">Sources</button>
+  <button class="tab-btn" data-tab="network">Network</button>
+  <button class="tab-btn" data-tab="devices">Devices</button>
+</div>
+
+<!-- ===========================================================================
+     TAB 1: SOURCES & CONTROLS (matches main.py lines 666-757)
+     =========================================================================== -->
+<div id="tab-sources" class="tab-content active">
+  <div class="tab-panel-row">
+
+    <!-- LEFT COLUMN: Controls (width=300 in DearPyGui) -->
+    <div class="col-left">
+
+      <!-- SOURCE CONTROL (lines 673-687) -->
+      <div class="section-label">Source Control</div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk_system" data-source="SYSTEM">
+        <label class="check-label" for="chk_system">System/CPU</label>
+        <span class="check-hint">(~1-2 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_trng" data-source="TRNG">
+        <label class="check-label" for="chk_trng">Hardware/TRNG</label>
+        <span class="check-hint">(~8.0 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_audio" data-source="AUDIO">
+        <label class="check-label" for="chk_audio">Audio (Mic)</label>
+        <span class="check-hint">(~2-4 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_video" data-source="VIDEO">
+        <label class="check-label" for="chk_video">Video (Cam)</label>
+        <span class="check-hint">(~0.5-2 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_mouse" data-source="MOUSE">
+        <label class="check-label" for="chk_mouse">HID (Mouse)</label>
+        <span class="check-hint">(~3-5 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_gpu_cuda" data-source="GPU_CUDA">
+        <label class="check-label" for="chk_gpu_cuda">GPU (CUDA)</label>
+        <span class="check-hint">(~0.5 bits/sample)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_gpu_ocl" data-source="GPU_OCL">
+        <label class="check-label" for="chk_gpu_ocl">GPU (OpenCL)</label>
+        <span class="check-hint">(~0.5 bits/sample)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_wifi" data-source="WIFI">
+        <label class="check-label" for="chk_wifi">WiFi Noise</label>
+        <span class="check-hint">(~1-2 bits/byte)</span>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_usb" data-source="USB_SERIAL">
+        <label class="check-label" for="chk_usb">USB Serial</label>
+        <span class="check-hint">(~2-3 bits/byte)</span>
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- GUITAR ESP32 ENTROPY (lines 692-709) -->
+      <div class="section-label guitar">Guitar ESP32 Entropy</div>
+
+      <div class="guitar-row">
+        <input type="checkbox" id="chk_guitar_spectra" checked data-guitar="Spectra">
+        <label class="check-label" for="chk_guitar_spectra">Spectra</label>
+        <span class="guitar-port" style="color: rgb(180,100,255);">UDP:5005/5056</span>
+        <span id="guitarStatusSpectra" class="guitar-status" style="color: var(--color-guitar-dim);">waiting...</span>
+      </div>
+      <div class="guitar-row">
+        <input type="checkbox" id="chk_guitar_neptonius" checked data-guitar="Neptonius">
+        <label class="check-label" for="chk_guitar_neptonius">Neptonius</label>
+        <span class="guitar-port" style="color: rgb(140,80,220);">UDP:5006/5057</span>
+        <span id="guitarStatusNeptonius" class="guitar-status" style="color: var(--color-guitar-dim);">waiting...</span>
+      </div>
+      <div class="guitar-row">
+        <input type="checkbox" id="chk_guitar_thalyn" checked data-guitar="Thalyn">
+        <label class="check-label" for="chk_guitar_thalyn">Thalyn</label>
+        <span class="guitar-port" style="color: rgb(200,120,255);">UDP:5007/5058</span>
+        <span id="guitarStatusThalyn" class="guitar-status" style="color: var(--color-guitar-dim);">waiting...</span>
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- LIVE MODE (lines 714-719) -->
+      <div class="section-label">Live Mode</div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_live_mode">
+        <label class="check-label" for="chk_live_mode">Enable Live Mode</label>
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- VAULT CONTROL (lines 724-734) -->
+      <div class="section-label">Vault Control</div>
+      <div id="txtCredited" class="stat-line">Credited: 0/256 bits</div>
+      <div class="progress-bar"><div id="progressMint" class="fill" style="width: 0%;"></div></div>
+      <div class="spacer-sm"></div>
+      <button id="btnMintKeypair" class="btn full">MINT KEYPAIR</button>
+      <div class="check-row">
+        <input type="checkbox" id="chk_auto_mint">
+        <label class="check-label" for="chk_auto_mint">Auto Mint (when ready)</label>
+      </div>
+      <div id="txtLastKey" class="status-text accent">Waiting...</div>
+    </div>
+
+    <!-- RIGHT COLUMN: Stats (lines 737-756) -->
+    <div class="col-right">
+      <div id="txtBytes" class="stat-line big">BYTES HARVESTED: 0</div>
+      <div id="txtQuality" class="stat-line accent">H_min: 0.0</div>
+
+      <div class="spacer-sm"></div>
+      <div class="section-label">Extraction Pool</div>
+      <div id="txtPoolFill" class="stat-line">Pool Fill: 0%</div>
+      <div id="txtPoolAccum" class="stat-line">Accumulated: 0 bytes</div>
+      <div id="txtExtractions" class="stat-line">Extractions: 0</div>
+      <div id="txtRatio" class="stat-line">Compression: 0:1</div>
+
+      <div class="spacer-md"></div>
+      <div class="section-label">Source Quality</div>
+      <textarea id="txtSourceBreakdown" class="source-breakdown" readonly>SOURCE      | H_min | Shannon | Health  | Samples
+-------------------------------------------------------
+(no data yet)</textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ===========================================================================
+     TAB 2: NETWORK & P2P (matches main.py lines 759-826)
+     =========================================================================== -->
+<div id="tab-network" class="tab-content">
+  <div class="tab-panel-row">
+
+    <div class="col-left">
+      <!-- NETWORK CONTROL (lines 764-776) -->
+      <div class="section-label">Network Control</div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_uplink" checked>
+        <label class="check-label" for="chk_uplink">Uplink</label>
+      </div>
+      <div class="input-group">
+        <label>Target IP</label>
+        <input type="text" id="inputUplinkIp" value="192.168.1.19" placeholder="Uplink IP" style="width:150px;">
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- HEADSCALE FORWARDING (lines 779-787) -->
+      <div class="section-label">Headscale Forwarding</div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_headscale" checked>
+        <label class="check-label" for="chk_headscale">Forward to Aoi Midori</label>
+      </div>
+      <div id="txtHeadscaleStatus" class="status-text warn">Aoi Midori: OFFLINE</div>
+
+      <div class="spacer-md"></div>
+
+      <!-- P2P ENTROPY SHARING (lines 790-826) -->
+      <div class="section-label">P2P Entropy Sharing</div>
+      <div class="check-row">
+        <input type="checkbox" id="chk_p2p">
+        <label class="check-label" for="chk_p2p">Enable P2P</label>
+      </div>
+      <div class="input-group">
+        <label>Listen Port</label>
+        <input type="text" id="inputP2pPort" value="9000" style="width:120px;">
+      </div>
+      <div class="input-group">
+        <label>Add Peer</label>
+        <input type="text" id="inputPeerIp" placeholder="IP:Port" style="width:180px;">
+      </div>
+
+      <div class="spacer-sm"></div>
+      <div id="txtHmacStatus" class="status-text warn">HMAC: DISABLED</div>
+      <div class="input-group">
+        <label>HMAC Key</label>
+        <input type="password" id="inputHmacKey" placeholder="32-byte hex key" style="width:180px;">
+      </div>
+      <button id="btnLoadHmacEnv" class="btn full">Load HMAC from ENV</button>
+    </div>
+
+    <div class="col-right">
+      <!-- Network info / future expansion area -->
+      <div class="section-label">Connection Status</div>
+      <div id="txtNetDetail" class="stat-line">Awaiting backend connection...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===========================================================================
+     TAB 3: DEVICES (matches main.py lines 831-899)
+     =========================================================================== -->
+<div id="tab-devices" class="tab-content">
+  <div class="tab-panel-row">
+
+    <div class="col-left">
+      <!-- AUDIO DEVICE (dropdown with real device names) -->
+      <div class="section-label">Audio Input (Microphone)</div>
+      <div class="input-group">
+        <label>Device</label>
+        <select id="selectAudioDevice" style="width:260px; background:var(--color-frame-bg); color:var(--color-text); border:1px solid var(--color-accent-dim); padding:4px 8px; font-family:var(--font-ui); font-size:11px; border-radius:var(--radius);">
+          <option value="-1">-- Click Refresh to scan --</option>
+        </select>
+        <button id="btnRefreshAudio" class="btn" style="width:70px; margin-left:4px; font-size:10px;">Refresh</button>
+      </div>
+      <div class="slider-group">
+        <label>Gain</label>
+        <input type="range" id="sliderAudioGain" min="0.1" max="10" step="0.1" value="1.0">
+        <span id="valAudioGain" class="slider-value">1.0</span>
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- CAMERA DEVICE (dropdown with real device names) -->
+      <div class="section-label">Camera (Webcam)</div>
+      <div class="input-group">
+        <label>Device</label>
+        <select id="selectCameraDevice" style="width:260px; background:var(--color-frame-bg); color:var(--color-text); border:1px solid var(--color-accent-dim); padding:4px 8px; font-family:var(--font-ui); font-size:11px; border-radius:var(--radius);">
+          <option value="-1">-- Click Refresh to scan --</option>
+        </select>
+        <button id="btnRefreshCamera" class="btn" style="width:70px; margin-left:4px; font-size:10px;">Refresh</button>
+      </div>
+
+      <div class="spacer-md"></div>
+
+      <!-- USB SERIAL (dropdown with real port names) -->
+      <div class="section-label">USB Serial</div>
+      <div class="input-group">
+        <label>Port</label>
+        <select id="selectUsbPort" style="width:260px; background:var(--color-frame-bg); color:var(--color-text); border:1px solid var(--color-accent-dim); padding:4px 8px; font-family:var(--font-ui); font-size:11px; border-radius:var(--radius);">
+          <option value="">-- Click Refresh to scan --</option>
+        </select>
+        <button id="btnRefreshSerial" class="btn" style="width:70px; margin-left:4px; font-size:10px;">Refresh</button>
+      </div>
+      <div class="input-group">
+        <label>Baud</label>
+        <select id="selectUsbBaud" style="width:120px; background:var(--color-frame-bg); color:var(--color-text); border:1px solid var(--color-accent-dim); padding:4px 8px; font-family:var(--font-ui); font-size:11px; border-radius:var(--radius);">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200" selected>115200</option>
+          <option value="230400">230400</option>
+          <option value="460800">460800</option>
+          <option value="921600">921600</option>
+        </select>
+      </div>
+      <div id="txtUsbStatus" class="status-text muted">USB: INACTIVE</div>
+
+      <div class="spacer-md"></div>
+
+      <!-- WIFI NOISE -->
+      <div class="section-label">WiFi Noise</div>
+      <div class="input-group">
+        <label>Interface</label>
+        <input type="text" id="inputWifiIface" placeholder="wlan0 (auto if empty)" style="width:180px;">
+      </div>
+      <div id="txtWifiStatus" class="status-text muted">WiFi: INACTIVE</div>
+    </div>
+
+    <!-- Right column: Configuration (lines 886-899) -->
+    <div class="col-right">
+      <div class="section-label">Configuration</div>
+      <div class="btn-row">
+        <button id="btnSaveConfig" class="btn" style="width:140px;">Save Config</button>
+        <button id="btnLoadConfig" class="btn" style="width:140px;">Load Config</button>
+      </div>
+      <div id="txtConfigStatus" class="status-text muted">Ready</div>
+    </div>
+  </div>
+</div>
+
+<div class="spacer-sm"></div>
+
+<!-- ===========================================================================
+     ENTROPY GRAPH (matches main.py lines 904-909)
+     =========================================================================== -->
+<div class="graph-section">
+  <div class="graph-label">Real-time Min-Entropy Quality (NIST H_min)</div>
+  <div class="graph-container">
+    <canvas id="entropyCanvas"></canvas>
+    <div class="graph-y-labels">
+      <span>8.0</span>
+      <span>6.0</span>
+      <span>4.0</span>
+      <span>2.0</span>
+      <span>0.0</span>
+    </div>
+    <div class="graph-legend">H_min</div>
+  </div>
+</div>
+
+<!-- ===========================================================================
+     POOL STATE DISPLAY (matches main.py lines 913-917)
+     =========================================================================== -->
+<div class="pool-section">
+  <div class="pool-label">LIVE POOL STATE (SHA-256 CONDITIONED):</div>
+  <div id="txtPool" class="pool-display">0000000000000000000000000000000000000000000000000000000000000000</div>
+</div>
+
+<!-- ===========================================================================
+     AUDIT LOG (matches main.py lines 922-923)
+     =========================================================================== -->
+<div class="log-section">
+  <div class="log-label">Audit Log</div>
+  <textarea id="txtConsole" class="log-display" readonly>[INIT] NullMagnet Live v1.0 - Jupiter Labs
+[INIT] NIST SP 800-90B Aligned Entropy Harvesting
+[INIT] Awaiting Tauri backend connection...</textarea>
+</div>
+
+<!-- ===========================================================================
+     JAVASCRIPT: Tab switching, slider sync, live pulse, canvas graph,
+     and Tauri invoke stubs (ready for backend wiring)
+     =========================================================================== -->
+<script>
+// ============================================================================
+// TAB SWITCHING
+// ============================================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================================
+// SLIDER VALUE SYNC
+// ============================================================================
+const gainSlider = document.getElementById('sliderAudioGain');
+const gainValue = document.getElementById('valAudioGain');
+gainSlider.addEventListener('input', () => {
+  gainValue.textContent = parseFloat(gainSlider.value).toFixed(1);
+  // Tauri invoke stub:
+  // invoke('set_audio_gain', { gain: parseFloat(gainSlider.value) });
+});
+
+// ============================================================================
+// LIVE MODE PULSE ANIMATION
+// ============================================================================
+let liveMode = false;
+let livePulseState = false;
+let livePulseTimer = null;
+let blinkActive = false;
+let blinkTimeout = null;
+
+const liveIndicator = document.getElementById('liveIndicator');
+const chkLiveMode = document.getElementById('chk_live_mode');
+
+chkLiveMode.addEventListener('change', () => {
+  liveMode = chkLiveMode.checked;
+  if (liveMode) {
+    startLivePulse();
+  } else {
+    stopLivePulse();
+    liveIndicator.className = 'live-indicator off';
+    liveIndicator.textContent = 'LIVE: OFF';
+  }
+});
+
+function startLivePulse() {
+  if (livePulseTimer) return;
+  livePulseTimer = setInterval(() => {
+    if (blinkActive) return;
+    livePulseState = !livePulseState;
+    liveIndicator.textContent = '[LIVE]';
+    liveIndicator.className = 'live-indicator ' + (livePulseState ? 'on' : 'pulse');
+  }, 500); // LIVE_PULSE_SPEED = 0.5s
+}
+
+function stopLivePulse() {
+  if (livePulseTimer) { clearInterval(livePulseTimer); livePulseTimer = null; }
+  if (blinkTimeout) { clearTimeout(blinkTimeout); blinkTimeout = null; }
+  blinkActive = false;
+}
+
+// Called on extraction event (from backend)
+function triggerBlink() {
+  if (!liveMode) return;
+  blinkActive = true;
+  liveIndicator.textContent = '** LIVE **';
+  liveIndicator.className = 'live-indicator blink';
+  if (blinkTimeout) clearTimeout(blinkTimeout);
+  blinkTimeout = setTimeout(() => {
+    blinkActive = false;
+  }, 150); // 150ms flash
+}
+
+// ============================================================================
+// ENTROPY GRAPH (Canvas rendering)
+// ============================================================================
+const canvas = document.getElementById('entropyCanvas');
+const ctx = canvas.getContext('2d');
+let entropyHistory = [];
+const HISTORY_LEN = 300;
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  drawGraph();
+}
+window.addEventListener('resize', resizeCanvas);
+setTimeout(resizeCanvas, 50);
+
+function drawGraph() {
+  const w = canvas.width / window.devicePixelRatio;
+  const h = canvas.height / window.devicePixelRatio;
+  const maxEntropy = 8.5;
+  const padding = { left: 28, right: 8, top: 8, bottom: 8 };
+  const plotW = w - padding.left - padding.right;
+  const plotH = h - padding.top - padding.bottom;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(60, 20, 20, 0.5)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 8; i += 2) {
+    const y = padding.top + plotH - (i / maxEntropy) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(w - padding.right, y);
+    ctx.stroke();
+  }
+
+  if (entropyHistory.length < 2) return;
+
+  // Draw entropy line
+  ctx.strokeStyle = 'rgb(255, 45, 45)';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'rgba(255, 45, 45, 0.4)';
+  ctx.shadowBlur = 4;
+  ctx.beginPath();
+
+  const step = plotW / (HISTORY_LEN - 1);
+  const startIdx = Math.max(0, entropyHistory.length - HISTORY_LEN);
+
+  for (let i = 0; i < Math.min(entropyHistory.length, HISTORY_LEN); i++) {
+    const val = entropyHistory[startIdx + i] || 0;
+    const x = padding.left + i * step;
+    const y = padding.top + plotH - (val / maxEntropy) * plotH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Fill under curve
+  const lastX = padding.left + (Math.min(entropyHistory.length, HISTORY_LEN) - 1) * step;
+  ctx.lineTo(lastX, padding.top + plotH);
+  ctx.lineTo(padding.left, padding.top + plotH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
+  grad.addColorStop(0, 'rgba(255, 45, 45, 0.15)');
+  grad.addColorStop(1, 'rgba(255, 45, 45, 0.01)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// ============================================================================
+// TAURI BACKEND INTERFACE STUBS
+// (These are the exact functions that will be wired to Rust commands)
+// ============================================================================
+
+/**
+ * Called by Tauri backend every ~100ms with metrics JSON
+ * Maps exactly to engine.get_metrics() from lib.rs
+ */
+function updateFromBackend(metrics) {
+  // --- Entropy Graph ---
+  const history = metrics.history_raw || metrics.history || [];
+  if (history.length > 0) {
+    entropyHistory = history;
+    drawGraph();
+  }
+
+  // --- Stats ---
+  const totalBytes = metrics.total_bytes || 0;
+  const currentEntropy = metrics.current_raw_entropy || 0;
+  document.getElementById('txtBytes').textContent = `BYTES HARVESTED: ${totalBytes.toLocaleString()}`;
+  document.getElementById('txtQuality').textContent = `Current H_min: ${currentEntropy.toFixed(4)} / 8.0 bits/byte`;
+
+  // --- NIST Config ---
+  const rct = metrics.nist_rct_cutoff || 31;
+  const aptWin = metrics.nist_apt_window || 512;
+  const aptCut = metrics.nist_apt_cutoff || 325;
+  const factor = metrics.nist_conditioning_factor || 0.85;
+  document.getElementById('nistConfig').textContent =
+    `RCT<=${rct} | APT(W=${aptWin},C<=${aptCut}) | Factor=${factor}`;
+
+  // --- Credited Entropy Progress ---
+  const aggBits = metrics.aggregate_credited_bits || 0;
+  const minForMint = metrics.min_entropy_for_mint || 256;
+  const mintProgress = Math.min((aggBits / minForMint) * 100, 100);
+  document.getElementById('progressMint').style.width = mintProgress + '%';
+  document.getElementById('txtCredited').textContent =
+    `Credited: ${aggBits.toFixed(0)}/${minForMint.toFixed(0)} bits (${mintProgress.toFixed(1)}%)`;
+
+  // --- Extraction Pool ---
+  document.getElementById('txtPoolFill').textContent = `Pool Fill: ${(metrics.extraction_pool_fill || 0).toFixed(1)}%`;
+  document.getElementById('txtPoolAccum').textContent = `Accumulated: ${metrics.extraction_pool_accumulated || 0} bytes`;
+  document.getElementById('txtExtractions').textContent = `Extractions: ${metrics.extractions_count || 0}`;
+  const totalRaw = metrics.total_raw_consumed || 0;
+  const totalExtracted = metrics.total_extracted_bytes || 0;
+  const ratio = totalExtracted > 0 ? (totalRaw / totalExtracted).toFixed(1) : '0';
+  document.getElementById('txtRatio').textContent = `Compression: ${ratio}:1`;
+
+  // --- Source Quality Breakdown ---
+  const sq = metrics.source_quality || {};
+  let breakdown = 'SOURCE      | H_min | Shannon | Health  | Samples\n';
+  breakdown += '-'.repeat(55) + '\n';
+  for (const [source, q] of Object.entries(sq)) {
+    const rawShannon = (q.raw_shannon || 0).toFixed(2);
+    const minEnt = (q.min_entropy || 0).toFixed(2);
+    const samples = q.samples || 0;
+    const health = q.health_state || 'INIT';
+    breakdown += `${source.padEnd(12)}| ${minEnt}  | ${rawShannon}    | ${health.padEnd(7)} | ${samples}\n`;
+  }
+  document.getElementById('txtSourceBreakdown').value = breakdown;
+
+  // --- GPU Status ---
+  const cudaAvail = metrics.gpu_cuda_available || false;
+  const cudaOn = metrics.gpu_cuda_enabled || false;
+  const oclAvail = metrics.gpu_ocl_available || false;
+  const oclOn = metrics.gpu_ocl_enabled || false;
+  const gpuEl = document.getElementById('statusGpu');
+  const parts = [];
+  if (cudaAvail) parts.push(`CUDA:${cudaOn ? 'ON' : 'off'}`);
+  if (oclAvail) parts.push(`OCL:${oclOn ? 'ON' : 'off'}`);
+  if (parts.length > 0) {
+    gpuEl.textContent = `GPU: ${parts.join(' | ')}`;
+    gpuEl.className = 'status-item ' + ((cudaOn || oclOn) ? 'ok' : 'warn');
+  } else {
+    gpuEl.textContent = 'GPU: NOT AVAILABLE';
+    gpuEl.className = 'status-item warn';
+  }
+
+  // --- Guitar Status ---
+  for (const gname of ['Spectra', 'Neptonius', 'Thalyn']) {
+    const el = document.getElementById('guitarStatus' + gname);
+    if (!el) continue;
+    const packets = metrics[`guitar_${gname.toLowerCase()}_packets`] || 0;
+    const chk = document.getElementById(`chk_guitar_${gname.toLowerCase()}`);
+    const enabled = chk ? chk.checked : false;
+    if (enabled && packets > 0) {
+      el.textContent = `${gname}: ${packets} pkts`;
+      el.style.color = '';  // use guitar color
+    } else if (enabled) {
+      el.textContent = `${gname}: listening...`;
+      el.style.color = 'var(--color-guitar-dim)';
+    } else {
+      el.textContent = `${gname}: OFF`;
+      el.style.color = 'var(--color-muted)';
+    }
+  }
+
+  // --- Headscale ---
+  const hsActive = metrics.headscale_active || false;
+  const hsFwd = metrics.headscale_forwarded || 0;
+  const hsEl = document.getElementById('txtHeadscaleStatus');
+  if (hsActive) {
+    hsEl.textContent = `Aoi Midori: 100.64.0.15 (${hsFwd} fwd)`;
+    hsEl.className = 'status-text success';
+  } else {
+    hsEl.textContent = 'Aoi Midori: OFFLINE';
+    hsEl.className = 'status-text warn';
+  }
+
+  // --- Pool Hex ---
+  document.getElementById('txtPool').textContent = metrics.pool_hex || '';
+
+  // --- Logs ---
+  const logs = metrics.logs || [];
+  document.getElementById('txtConsole').value = logs.slice(-50).join('\n');
+
+  // --- Network Status ---
+  const netEl = document.getElementById('statusNet');
+  if (metrics.net_mode) {
+    netEl.textContent = 'UPLINK: ONLINE';
+    netEl.className = 'status-item ok';
+  } else {
+    netEl.textContent = 'UPLINK: OFFLINE';
+    netEl.className = 'status-item warn';
+  }
+
+  // --- P2P Status ---
+  const p2pEl = document.getElementById('statusP2p');
+  if (metrics.p2p_active) {
+    const hmacStr = metrics.p2p_hmac_enabled ? ' HMAC' : '';
+    p2pEl.textContent = `P2P: ACTIVE${hmacStr} (${metrics.p2p_peer_count || 0}p/${metrics.p2p_received_count || 0}rx)`;
+    p2pEl.className = 'status-item ok';
+  } else {
+    p2pEl.textContent = 'P2P: OFFLINE';
+    p2pEl.className = 'status-item warn';
+  }
+
+  // --- PQC Status ---
+  const pqcEl = document.getElementById('statusPqc');
+  if (metrics.pqc_ready) {
+    pqcEl.textContent = 'PQC: ACTIVE (Kyber/Falcon)';
+    pqcEl.className = 'status-item ok';
+  } else {
+    pqcEl.textContent = 'PQC: DISABLED';
+    pqcEl.className = 'status-item err';
+  }
+
+  // --- WiFi Status ---
+  const wifiEl = document.getElementById('txtWifiStatus');
+  if (metrics.wifi_active) {
+    wifiEl.textContent = `WiFi: ${metrics.wifi_samples || 0} samples`;
+    wifiEl.className = 'status-text success';
+  } else {
+    wifiEl.textContent = 'WiFi: INACTIVE';
+    wifiEl.className = 'status-text muted';
+  }
+
+  // --- USB Status ---
+  const usbEl = document.getElementById('txtUsbStatus');
+  if (metrics.usb_serial_active) {
+    usbEl.textContent = `USB: ${metrics.usb_serial_bytes || 0} bytes`;
+    usbEl.className = 'status-text success';
+  } else {
+    usbEl.textContent = 'USB: INACTIVE';
+    usbEl.className = 'status-text muted';
+  }
+
+  // --- Blink on extraction ---
+  if (typeof updateFromBackend._prevExtractions === 'undefined') {
+    updateFromBackend._prevExtractions = 0;
+  }
+  const curExtractions = metrics.extractions_count || 0;
+  if (curExtractions > updateFromBackend._prevExtractions) {
+    triggerBlink();
+  }
+  updateFromBackend._prevExtractions = curExtractions;
+
+  // --- Sync harvester checkboxes to backend state ---
+  // (e.g. when Live Mode toggles all harvesters at once)
+  const checkboxMap = {
+    'chk_trng': metrics.harvester_trng,
+    'chk_audio': metrics.harvester_audio,
+    'chk_system': metrics.harvester_system,
+    'chk_mouse': metrics.harvester_mouse,
+    'chk_video': metrics.harvester_video,
+    'chk_gpu_cuda': metrics.gpu_cuda_enabled,
+    'chk_gpu_ocl': metrics.gpu_ocl_enabled,
+    'chk_wifi': metrics.harvester_wifi,
+    'chk_usb': metrics.harvester_usb_serial,
+    'chk_live_mode': metrics.live_mode,
+  };
+  for (const [id, val] of Object.entries(checkboxMap)) {
+    const el = document.getElementById(id);
+    if (el && typeof val === 'boolean') el.checked = val;
+  }
+  // Sync live pulse animation with backend state
+  if (typeof metrics.live_mode === 'boolean' && metrics.live_mode !== liveMode) {
+    liveMode = metrics.live_mode;
+    if (liveMode) {
+      startLivePulse();
+    } else {
+      stopLivePulse();
+      liveIndicator.className = 'live-indicator off';
+      liveIndicator.textContent = 'LIVE: OFF';
+    }
+  }
+}
+
+// ============================================================================
+// TAURI COMMAND STUBS
+// These map 1:1 to ChaosEngine methods in lib.rs
+// When Tauri is wired, replace stubs with:
+//   const { invoke } = window.__TAURI__.tauri;
+// ============================================================================
+
+// Detect Tauri environment - support both v1 invoke paths
+const isTauri = window.__TAURI__ !== undefined;
+const invoke = isTauri
+  ? (window.__TAURI__.invoke || (window.__TAURI__.tauri && window.__TAURI__.tauri.invoke) || null)
+  : null;
+
+// Debug: log Tauri detection result to help troubleshoot
+if (isTauri) {
+  console.log('[NullMagnet] Tauri detected, invoke available:', !!invoke);
+  if (!invoke) {
+    console.error('[NullMagnet] __TAURI__ exists but invoke not found. Keys:', Object.keys(window.__TAURI__));
+  }
+} else {
+  console.log('[NullMagnet] Running in DEMO mode (no Tauri)');
+}
+
+const TauriCommands = {
+  // Harvester toggles (main.rs: toggle_harvester)
+  toggleHarvester(rustName, enabled) {
+    if (invoke) invoke('toggle_harvester', { source: rustName, enabled });
+    else console.log(`CMD: toggle_harvester(${rustName}, ${enabled})`);
+  },
+
+  // Network (main.rs: toggle_uplink, set_network_target)
+  toggleUplink(enabled) {
+    if (invoke) invoke('toggle_uplink', { enabled });
+    else console.log(`CMD: toggle_uplink(${enabled})`);
+  },
+  setNetworkTarget(ip) {
+    if (invoke) invoke('set_network_target', { ip });
+    else console.log(`CMD: set_network_target(${ip})`);
+  },
+
+  // Headscale (main.rs: toggle_headscale)
+  toggleHeadscale(enabled) {
+    if (invoke) invoke('toggle_headscale', { enabled });
+    else console.log(`CMD: toggle_headscale(${enabled})`);
+  },
+
+  // P2P (main.rs: toggle_p2p, set_p2p_port, add_peer, set_p2p_hmac_key)
+  toggleP2p(enabled) {
+    if (invoke) invoke('toggle_p2p', { enabled });
+    else console.log(`CMD: toggle_p2p(${enabled})`);
+  },
+  setP2pPort(port) {
+    if (invoke) invoke('set_p2p_port', { port });
+    else console.log(`CMD: set_p2p_port(${port})`);
+  },
+  addPeer(addr) {
+    if (invoke) invoke('add_peer', { addr });
+    else console.log(`CMD: add_peer(${addr})`);
+  },
+  setHmacKey(hexKey) {
+    if (invoke) invoke('set_p2p_hmac_key', { hexKey });
+    else console.log(`CMD: set_p2p_hmac_key(***)`);
+  },
+
+  // PQC (main.rs: mint_pqc_bundle)
+  mintPqcBundle() {
+    if (invoke) {
+      invoke('mint_pqc_bundle', { requester: 'GUI_USER' })
+        .then(msg => document.getElementById('txtLastKey').textContent = `Last: ${msg}`)
+        .catch(err => document.getElementById('txtLastKey').textContent = `Error: ${err}`);
+    } else console.log('CMD: mint_pqc_bundle(GUI_USER)');
+  },
+
+  // Auto-mint (main.rs: set_auto_mint)
+  setAutoMint(enabled) {
+    if (invoke) invoke('set_auto_mint', { enabled });
+    else console.log(`CMD: set_auto_mint(${enabled})`);
+  },
+
+  // Device manager (main.rs: set_audio_device, set_audio_gain, etc.)
+  setAudioDevice(index) {
+    if (invoke) invoke('set_audio_device', { index: parseInt(index) });
+    else console.log(`CMD: set_audio_device(${index})`);
+  },
+  setAudioGain(gain) {
+    if (invoke) invoke('set_audio_gain', { gain });
+    else console.log(`CMD: set_audio_gain(${gain})`);
+  },
+  setCameraDevice(index) {
+    if (invoke) invoke('set_camera_device', { index: parseInt(index) });
+    else console.log(`CMD: set_camera_device(${index})`);
+  },
+  setUsbSerialPort(port, baud) {
+    if (invoke) invoke('set_usb_serial_port', { port, baud: parseInt(baud) });
+    else console.log(`CMD: set_usb_serial_port(${port}, ${baud})`);
+  },
+  setWifiInterface(iface) {
+    if (invoke) invoke('set_wifi_interface', { iface });
+    else console.log(`CMD: set_wifi_interface(${iface})`);
+  },
+
+  // Device enumeration (NEW - populate dropdown menus)
+  async listAudioDevices() {
+    if (invoke) return invoke('list_audio_devices');
+    // Demo mode fallback
+    return JSON.stringify([
+      { index: 0, name: "Default Microphone", type: "input" },
+      { index: 1, name: "Webcam Mic (USB)", type: "input" },
+      { index: 2, name: "Line In (Realtek)", type: "input" },
+    ]);
+  },
+  async listCameraDevices() {
+    if (invoke) return invoke('list_camera_devices');
+    return JSON.stringify([
+      { index: 0, name: "Integrated Webcam", description: "USB2.0 HD Camera" },
+      { index: 1, name: "OBS Virtual Camera", description: "Virtual" },
+    ]);
+  },
+  async listSerialPorts() {
+    if (invoke) return invoke('list_serial_ports');
+    return JSON.stringify([
+      { port: "COM3", description: "USB Serial - Arduino" },
+      { port: "COM7", description: "ESP32 - Silicon Labs" },
+    ]);
+  },
+
+  // Live mode (main.rs: set_live_mode)
+  setLiveMode(active) {
+    if (invoke) invoke('set_live_mode', { active });
+    else console.log(`CMD: set_live_mode(${active})`);
+  },
+
+  // Guitar toggles (main.rs: toggle_guitar)
+  toggleGuitar(name, enabled) {
+    if (invoke) invoke('toggle_guitar', { name, enabled });
+    else console.log(`CMD: toggle_guitar(${name}, ${enabled})`);
+  },
+
+  // Config (main.rs: save_config, load_config)
+  saveConfig() {
+    if (invoke) return invoke('save_config');
+    else console.log('CMD: save_config()');
+  },
+  loadConfig() {
+    if (invoke) return invoke('load_config');
+    else console.log('CMD: load_config()');
+  },
+
+  // Metrics polling (main.rs: get_metrics -> lib.rs get_metrics_internal)
+  async getMetrics() {
+    if (invoke) return invoke('get_metrics');
+    else return null;
+  },
+
+  // Shutdown (main.rs: shutdown)
+  shutdown() {
+    if (invoke) invoke('shutdown');
+    else console.log('CMD: shutdown()');
+  }
+};
+
+// ============================================================================
+// WIRE UP ALL EVENT HANDLERS
+// (Maps exactly to callbacks in main.py)
+// ============================================================================
+
+// Source checkboxes -> toggle_harvester
+document.querySelectorAll('[data-source]').forEach(chk => {
+  chk.addEventListener('change', () => {
+    TauriCommands.toggleHarvester(chk.dataset.source, chk.checked);
+  });
+});
+
+// Guitar checkboxes -> toggle_guitar
+document.querySelectorAll('[data-guitar]').forEach(chk => {
+  chk.addEventListener('change', () => {
+    TauriCommands.toggleGuitar(chk.dataset.guitar, chk.checked);
+  });
+});
+
+// Live mode
+chkLiveMode.addEventListener('change', () => {
+  TauriCommands.setLiveMode(chkLiveMode.checked);
+});
+
+// Mint keypair
+document.getElementById('btnMintKeypair').addEventListener('click', () => {
+  TauriCommands.mintPqcBundle();
+});
+
+// Auto mint
+document.getElementById('chk_auto_mint').addEventListener('change', function() {
+  TauriCommands.setAutoMint(this.checked);
+});
+
+// Uplink toggle
+document.getElementById('chk_uplink').addEventListener('change', function() {
+  TauriCommands.toggleUplink(this.checked);
+});
+
+// Uplink IP
+document.getElementById('inputUplinkIp').addEventListener('change', function() {
+  TauriCommands.setNetworkTarget(this.value);
+});
+
+// Headscale toggle
+document.getElementById('chk_headscale').addEventListener('change', function() {
+  TauriCommands.toggleHeadscale(this.checked);
+});
+
+// P2P toggle
+document.getElementById('chk_p2p').addEventListener('change', function() {
+  TauriCommands.toggleP2p(this.checked);
+});
+
+// P2P port
+document.getElementById('inputP2pPort').addEventListener('change', function() {
+  const port = parseInt(this.value);
+  if (port >= 1024 && port <= 65535) {
+    TauriCommands.setP2pPort(port);
+  }
+});
+
+// Add peer
+document.getElementById('inputPeerIp').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && this.value) {
+    TauriCommands.addPeer(this.value);
+    this.value = '';
+  }
+});
+
+// HMAC key
+document.getElementById('inputHmacKey').addEventListener('change', function() {
+  if (this.value) {
+    TauriCommands.setHmacKey(this.value);
+    this.value = '';
+  }
+});
+
+// Load HMAC from ENV
+document.getElementById('btnLoadHmacEnv').addEventListener('click', () => {
+  console.log('CMD: load_hmac_from_env()');
+  // Would invoke Tauri command to read env var
+});
+
+// --- Device Dropdown Handlers ---
+
+// Refresh Audio Devices button
+document.getElementById('btnRefreshAudio').addEventListener('click', async () => {
+  const sel = document.getElementById('selectAudioDevice');
+  sel.innerHTML = '<option value="-1">Scanning...</option>';
+  try {
+    const json = await TauriCommands.listAudioDevices();
+    const devices = JSON.parse(json);
+    sel.innerHTML = '';
+    devices.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.index;
+      opt.textContent = `[${d.index}] ${d.name}`;
+      sel.appendChild(opt);
+    });
+    if (devices.length > 0 && devices[0].type !== 'none') {
+      sel.value = devices[0].index;
+      TauriCommands.setAudioDevice(devices[0].index);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="-1">Error scanning devices</option>';
+    console.error('Audio device scan error:', e);
+  }
+});
+
+// Audio device selection change
+document.getElementById('selectAudioDevice').addEventListener('change', function() {
+  const idx = parseInt(this.value);
+  if (idx >= 0) TauriCommands.setAudioDevice(idx);
+});
+
+// Audio gain slider
+gainSlider.addEventListener('change', () => {
+  TauriCommands.setAudioGain(parseFloat(gainSlider.value));
+});
+
+// Refresh Camera Devices button
+document.getElementById('btnRefreshCamera').addEventListener('click', async () => {
+  const sel = document.getElementById('selectCameraDevice');
+  sel.innerHTML = '<option value="-1">Scanning...</option>';
+  try {
+    const json = await TauriCommands.listCameraDevices();
+    const devices = JSON.parse(json);
+    sel.innerHTML = '';
+    devices.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.index;
+      opt.textContent = `[${d.index}] ${d.name}`;
+      if (d.description) opt.title = d.description;
+      sel.appendChild(opt);
+    });
+    if (devices.length > 0) {
+      sel.value = devices[0].index;
+      TauriCommands.setCameraDevice(devices[0].index);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="-1">Error scanning cameras</option>';
+    console.error('Camera device scan error:', e);
+  }
+});
+
+// Camera device selection change
+document.getElementById('selectCameraDevice').addEventListener('change', function() {
+  const idx = parseInt(this.value);
+  if (idx >= 0) TauriCommands.setCameraDevice(idx);
+});
+
+// Refresh Serial Ports button
+document.getElementById('btnRefreshSerial').addEventListener('click', async () => {
+  const sel = document.getElementById('selectUsbPort');
+  sel.innerHTML = '<option value="">Scanning...</option>';
+  try {
+    const json = await TauriCommands.listSerialPorts();
+    const ports = JSON.parse(json);
+    sel.innerHTML = '';
+    ports.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.port;
+      opt.textContent = p.port ? `${p.port} - ${p.description}` : p.description;
+      sel.appendChild(opt);
+    });
+    if (ports.length > 0 && ports[0].port) {
+      sel.value = ports[0].port;
+      const baud = parseInt(document.getElementById('selectUsbBaud').value);
+      TauriCommands.setUsbSerialPort(ports[0].port, baud);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="">Error scanning ports</option>';
+    console.error('Serial port scan error:', e);
+  }
+});
+
+// USB port selection change
+document.getElementById('selectUsbPort').addEventListener('change', function() {
+  if (this.value) {
+    const baud = parseInt(document.getElementById('selectUsbBaud').value);
+    TauriCommands.setUsbSerialPort(this.value, baud);
+  }
+});
+
+// USB baud rate change
+document.getElementById('selectUsbBaud').addEventListener('change', function() {
+  const port = document.getElementById('selectUsbPort').value;
+  if (port) TauriCommands.setUsbSerialPort(port, parseInt(this.value));
+});
+
+// WiFi interface (keep as text - interface names are OS-specific)
+document.getElementById('inputWifiIface').addEventListener('change', function() {
+  if (this.value) TauriCommands.setWifiInterface(this.value);
+});
+
+// Auto-scan devices when Devices tab is opened
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.textContent.trim().toUpperCase() === 'DEVICES') {
+      const audioSel = document.getElementById('selectAudioDevice');
+      if (audioSel.options.length <= 1 && audioSel.options[0]?.value === '-1') {
+        setTimeout(() => {
+          document.getElementById('btnRefreshAudio').click();
+          document.getElementById('btnRefreshCamera').click();
+          document.getElementById('btnRefreshSerial').click();
+        }, 200);
+      }
+    }
+  });
+});
+
+// Save/Load config
+document.getElementById('btnSaveConfig').addEventListener('click', () => {
+  TauriCommands.saveConfig();
+  const el = document.getElementById('txtConfigStatus');
+  el.textContent = 'Saved: nullmagnet_config.json';
+  el.className = 'status-text success';
+});
+document.getElementById('btnLoadConfig').addEventListener('click', () => {
+  TauriCommands.loadConfig();
+  const el = document.getElementById('txtConfigStatus');
+  el.textContent = 'Loaded: nullmagnet_config.json';
+  el.className = 'status-text success';
+});
+
+// ============================================================================
+// DEMO MODE: Simulate backend data for visual verification
+// (Remove when Tauri backend is connected)
+// ============================================================================
+
+// ============================================================================
+// METRICS POLLING LOOP
+// In Tauri: polls get_metrics every 100ms (10 FPS, matches UPDATE_INTERVAL)
+// In browser: runs demo mode with simulated data
+// ============================================================================
+
+let demoTick = 0;
+
+async function metricsLoop() {
+  if (isTauri) {
+    // REAL MODE: Poll Rust backend via Tauri invoke
+    try {
+      const metricsJson = await TauriCommands.getMetrics();
+      if (metricsJson) {
+        const metrics = JSON.parse(metricsJson);
+        updateFromBackend(metrics);
+      }
+    } catch (e) {
+      console.error('Metrics poll error:', e);
+    }
+  } else {
+    // DEMO MODE: Simulate backend data for browser preview
+    demoTick++;
+
+    if (entropyHistory.length < HISTORY_LEN) {
+      entropyHistory.push(2 + Math.random() * 3 + Math.sin(demoTick * 0.05) * 1.5);
+    } else {
+      entropyHistory.shift();
+      entropyHistory.push(2 + Math.random() * 3 + Math.sin(demoTick * 0.05) * 1.5);
+    }
+
+    const fakeMetrics = {
+      total_bytes: demoTick * 137,
+      current_raw_entropy: 3.5 + Math.sin(demoTick * 0.1) * 1.5,
+      nist_rct_cutoff: 31,
+      nist_apt_window: 512,
+      nist_apt_cutoff: 325,
+      nist_conditioning_factor: 0.85,
+      aggregate_credited_bits: Math.min(demoTick * 0.8, 256),
+      min_entropy_for_mint: 256,
+      extraction_pool_fill: Math.min(demoTick * 0.3, 100),
+      extraction_pool_accumulated: demoTick * 42,
+      extractions_count: Math.floor(demoTick / 50),
+      total_raw_consumed: demoTick * 200,
+      total_extracted_bytes: demoTick * 32,
+      source_quality: {
+        'SYSTEM': { raw_shannon: 1.2, min_entropy: 0.9, samples: demoTick * 5, health_state: 'STEADY' },
+        'TRNG': { raw_shannon: 7.8, min_entropy: 7.5, samples: demoTick * 2, health_state: 'STEADY' },
+        'AUDIO': { raw_shannon: 3.1, min_entropy: 2.5, samples: demoTick * 8, health_state: demoTick > 40 ? 'STEADY' : 'STARTUP' },
+      },
+      gpu_cuda_available: true,
+      gpu_cuda_enabled: false,
+      gpu_ocl_available: false,
+      gpu_ocl_enabled: false,
+      pool_hex: Array.from({length: 64}, () => '0123456789ABCDEF'[Math.floor(Math.random()*16)]).join(''),
+      history_raw: entropyHistory,
+      logs: [
+        `[${new Date().toLocaleTimeString()}] MIXER: Pool updated (${demoTick * 137} bytes total)`,
+        `[${new Date().toLocaleTimeString()}] NIST: Health tests passing`,
+        `[${new Date().toLocaleTimeString()}] ENTROPY: H_min = ${(3.5 + Math.sin(demoTick*0.1)*1.5).toFixed(4)}`,
+      ],
+      net_mode: false,
+      pqc_ready: demoTick > 20,
+      p2p_active: false,
+      p2p_peer_count: 0,
+      p2p_received_count: 0,
+      p2p_hmac_enabled: false,
+      headscale_active: false,
+      headscale_forwarded: 0,
+      wifi_active: false,
+      wifi_samples: 0,
+      usb_serial_active: false,
+      usb_serial_bytes: 0,
+    };
+
+    updateFromBackend(fakeMetrics);
+  }
+
+  setTimeout(metricsLoop, 100); // 10 FPS
+}
+
+// Start polling after initial render
+setTimeout(metricsLoop, 200);
+
+// Handle Tauri window close -> clean shutdown
+if (isTauri) {
+  window.addEventListener('beforeunload', () => {
+    TauriCommands.shutdown();
+  });
+}
+
+
+</script>
+</body>
+</html>

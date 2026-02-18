@@ -1,0 +1,16 @@
+{
+  "name": "nullmagnet-live",
+  "version": "1.0.0",
+  "description": "NullMagnet Live - NIST SP 800-90B Entropy Harvesting (Jupiter Labs)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1"
+  }
+}

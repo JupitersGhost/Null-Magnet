@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "mode": "live",
+  "app_name": "NullMagnet Live",
+  "headscale": {
+    "enabled": true,
+    "aoi_midori_ip": "100.64.0.15",
+    "laptop_hostname": "jupiterprism",
+    "forward_udp": true
+  },
+  "guitar_sources": {
+    "spectra": {
+      "label": "Spectra (Guitar B)",
+      "udp_ping_port": 5005,
+      "entropy_port": 5056,
+      "enabled": true
+    },
+    "neptonius": {
+      "label": "Neptonius (Guitar A)",
+      "udp_ping_port": 5006,
+      "entropy_port": 5057,
+      "enabled": true
+    },
+    "thalyn": {
+      "label": "Thalyn (Guitar C)",
+      "udp_ping_port": 5007,
+      "entropy_port": 5058,
+      "enabled": true
+    }
+  },
+  "local_sensors": {
+    "audio": {
+      "auto_detect": true,
+      "default_gain": 1.0,
+      "devices": []
+    },
+    "video": {
+      "auto_detect": true,
+      "max_simultaneous": 3,
+      "devices": []
+    },
+    "gpu": {
+      "enabled": true,
+      "prefer_order": [
+        "cuda",
+        "opencl_dgpu",
+        "opencl_igpu"
+      ]
+    },
+    "usb_serial": {
+      "auto_detect": true,
+      "default_baud_rate": 115200,
+      "devices": []
+    },
+    "wifi_noise": {
+      "enabled": true,
+      "poll_interval_ms": 2000
+    }
+  },
+  "network": {
+    "uplink_enabled": true,
+    "uplink_ip": "100.64.0.15",
+    "uplink_port": 8000,
+    "p2p_port": 9000,
+    "p2p_hmac_key_hex": ""
+  },
+  "nist": {
+    "rct_cutoff": 31,
+    "apt_window": 512,
+    "apt_cutoff": 325,
+    "conditioning_factor": 0.85,
+    "startup_discard": 4096,
+    "mint_threshold_bits": 256
+  },
+  "auto_mint": {
+    "enabled": true,
+    "cooldown_seconds": 10
+  },
+  "org": "Jupiter Labs"
+}

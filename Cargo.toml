@@ -1,0 +1,111 @@
+[package]
+name = "nullmagnet-live"
+version = "1.0.0"
+edition = "2021"
+description = "NullMagnet Live - NIST SP 800-90B entropy harvesting with PQC key generation"
+authors = ["Jupiter Labs"]
+
+[lib]
+name = "nullmagnet_live_core"
+path = "src/lib.rs"
+crate-type = ["lib", "staticlib"]
+
+[[bin]]
+name = "nullmagnet-live"
+path = "src/main.rs"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+# GPU entropy harvesting (enable one or both - tracked independently)
+gpu-cuda = ["cudarc"]          # NVIDIA GPU via CUDA (separate thread)
+gpu-opencl = ["ocl"]           # AMD/Intel/NVIDIA via OpenCL (separate thread)
+gpu-all = ["gpu-cuda", "gpu-opencl"]  # Both GPUs (dual setup, independent threads)
+
+[dependencies]
+# ============================================================================
+# TAURI FRAMEWORK (replaces PyO3)
+# ============================================================================
+tauri = { version = "1", features = [ "fs-exists", "path-all", "fs-write-file", "fs-read-file", "shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# ============================================================================
+# CRYPTOGRAPHY - NIST approved algorithms (UNCHANGED)
+# ============================================================================
+sha2 = "0.10"               # SHA-256 (vetted conditioning function)
+sha3 = "0.10"               # SHA-3 (vetted conditioning function)
+hmac = "0.12"               # HMAC-SHA256 for P2P authentication
+
+# Post-Quantum Cryptography (UNCHANGED)
+pqcrypto-kyber = "0.8"      # Kyber-512 KEM
+pqcrypto-falcon = "0.3"     # Falcon-512 signatures
+pqcrypto-traits = "0.3"
+
+# Randomness (UNCHANGED)
+rand = "0.8"
+getrandom = "0.2"           # OS CSPRNG
+
+# Encoding (UNCHANGED)
+hex = "0.4"
+
+# Secret key zeroization - FIPS 140-3 requirement (UNCHANGED)
+zeroize = { version = "1.7", features = ["derive"] }
+
+# ============================================================================
+# HARDWARE / SYSTEM ENTROPY SOURCES (UNCHANGED)
+# ============================================================================
+cpal = "0.15"               # Audio input (device enumeration + capture)
+rdev = "0.5"                # Mouse/keyboard events
+sysinfo = "0.30"            # System statistics
+nokhwa = { version = "0.10", features = ["input-native"] }  # Video/webcam
+
+# USB Serial entropy harvesting (UNCHANGED)
+serialport = "4.3"          # USB Serial device access (ESP32, Arduino, etc.)
+
+# ============================================================================
+# NETWORKING (UNCHANGED)
+# ============================================================================
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+
+# ============================================================================
+# CONCURRENCY (UNCHANGED)
+# ============================================================================
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+# ============================================================================
+# TIME (UNCHANGED)
+# ============================================================================
+chrono = "0.4"
+
+# ============================================================================
+# GPU SUPPORT - Optional (UNCHANGED)
+# ============================================================================
+# NVIDIA CUDA - uses auto-detection of installed CUDA version
+cudarc = { version = "0.11", optional = true, features = ["cuda-version-from-build-system"] }
+# OpenCL (AMD/Intel/NVIDIA) - independent from CUDA thread
+ocl = { version = "0.19", optional = true }
+
+[build-dependencies]
+tauri-build = { version = "1", features = [] }
+cc = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+# ============================================================================
+# Build instructions:
+# Standard (no GPU):     cargo tauri build
+# NVIDIA only:           cargo tauri build -- --features gpu-cuda
+# AMD only:              cargo tauri build -- --features gpu-opencl
+# Dual GPU (both):       cargo tauri build -- --features gpu-all
+#
+# Dev mode:              cargo tauri dev
+#
+# Guitar ESP32 UDP entropy listeners are always compiled in (std::net::UdpSocket)
+# USB Serial harvester uses the serialport crate (always compiled)
+# WiFi noise harvester reads system interfaces (no extra deps needed)
+# ============================================================================
